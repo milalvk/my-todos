@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="To-Do">
+<title>📝 To-Do Lists</title>
+<style>
+  :root {
+    --accent: #1a73e8;
+    --accent-light: #e8f0fe;
+    --danger: #ff3b30;
+    --text: #1d1d1f;
+    --muted: #86868b;
+    --border: #e0e0e5;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; min-height: -webkit-fill-available; }
+  .setup-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .setup-card { background: var(--card); border-radius: var(--radius); padding: 32px 28px; max-width: 420px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,.1); }
+  .setup-card h1 { font-size: 22px; margin-bottom: 6px; }
+  .setup-card .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+  .setup-step { display: flex; gap: 12px; margin-bottom: 20px; align-items: flex-start; }
+  .step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  .step-body p { font-size: 13px; line-height: 1.5; color: var(--text); margin-bottom: 6px; }
+  .step-body a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .step-body a:hover { text-decoration: underline; }
+  .step-body code { background: #f5f5f7; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; display: block; }
+  input[type="text"], input[type="password"] { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit; color: var(--text); background: #fafafa; outline: none; transition: border-color .15s; }
+  input:focus { border-color: var(--accent); background: #fff; }
+  .setup-divider { text-align: center; font-size: 12px; color: var(--muted); margin: 20px 0; position: relative; }
+  .setup-divider::before, .setup-divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border); }
+  .setup-divider::before { left: 0; }
+  .setup-divider::after { right: 0; }
+  .existing-gist { margin-bottom: 6px; }
+  .btn-primary { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; margin-top: 20px; transition: background .12s; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-primary:disabled { background: var(--muted); cursor: default; }
+  .setup-error { background: #fff0ef; color: #c0392b; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 14px; display: none; }
+  .setup-error.show { display: block; }
+  #app { display: none; height: 100vh; height: -webkit-fill-available; flex-direction: column; }
+  #app.visible { display: flex; }
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 16px; display: flex; align-items: center; gap: 10px; height: 56px; flex-shrink: 0; position: sticky; top: 0; z-index: 10; }
+  .topbar h1 { font-size: 17px; font-weight: 700; flex: 1; }
+  .sync-badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: var(--bg); color: var(--muted); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .sync-badge.synced { background: #d4f5e0; color: #1a7f45; }
+  .sync-badge.syncing { background: #fff3cd; color: #856404; }
+  .sync-badge.error { background: #fff0ef; color: #c0392b; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .syncing .sync-dot { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+  .list-tabs { display: flex; gap: 0; overflow-x: auto; background: var(--card); border-bottom: 1px solid var(--border); flex-shrink: 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .list-tabs::-webkit-scrollbar { display: none; }
+  .list-tab { flex-shrink: 0; padding: 10px 14px; border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: color .12s, border-color .12s; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+  .list-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .list-tab:hover { color: var(--text); }
+  .list-tab .tab-count { font-size: 10px; background: var(--bg); border-radius: 8px; padding: 1px 5px; color: var(--muted); }
+  .list-tab.active .tab-count { background: var(--accent-light); color: var(--accent); }
+  .tab-add-btn { flex-shrink: 0; padding: 10px 14px; border: none; background: none; font-family: inherit; font-size: 18px; color: var(--muted); cursor: pointer; transition: color .12s; }
+  .tab-add-btn:hover { color: var(--accent); }
+  .main-content { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+  .add-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .add-row input { flex: 1; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 15px; font-family: inherit; color: var(--text); background: var(--card); outline: none; transition: border-color .15s; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .add-row input:focus { border-color: var(--accent); }
+  .btn-add { padding: 11px 16px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background .12s; box-shadow: 0 1px 3px rgba(26,115,232,.3); }
+  .btn-add:hover { background: #1557b0; }
+  .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; }
+  .filter-chip { padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 500; background: var(--card); color: var(--muted); cursor: pointer; transition: all .12s; }
+  .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .items-list { list-style: none; }
+  .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 12px 4px 6px; margin-bottom: 2px; }
+  .todo-item { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; margin-bottom: 6px; background: var(--card); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: background .12s; position: relative; }
+  .todo-item:active { background: #f0f0f5; }
+  .todo-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; margin-top: 1px; }
+  .item-body { flex: 1; min-width: 0; }
+  .item-text { font-size: 15px; line-height: 1.4; color: var(--text); word-break: break-word; }
+  .todo-item.completed .item-text { text-decoration: line-through; color: var(--muted); }
+  .item-actions { display: flex; gap: 4px; flex-shrink: 0; margin-top: -2px; }
+  .btn-icon-sm { border: none; background: none; font-size: 15px; cursor: pointer; color: var(--muted); padding: 4px; border-radius: 6px; transition: color .12s, background .12s; }
+  .btn-icon-sm:hover { background: var(--bg); color: var(--text); }
+  .btn-icon-delete:hover { color: var(--danger) !important; }
+  .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+  .empty-state .e-icon { font-size: 44px; margin-bottom: 12px; }
+  .empty-state p { font-size: 15px; }
+  .no-list-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .no-list-state .e-icon { font-size: 48px; margin-bottom: 14px; }
+  .no-list-state h2 { font-size: 18px; color: var(--text); margin-bottom: 6px; }
+  .no-list-state p { font-size: 14px; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 100; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet { background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 20px 34px; width: 100%; max-width: 500px; box-shadow: 0 -4px 24px rgba(0,0,0,.15); animation: slideUp .2s ease; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+  .modal-sheet input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-size: 15px; font-family: inherit; color: var(--text); background: #fafafa; outline: none; margin-bottom: 12px; transition: border-color .15s; }
+  .modal-sheet input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; }
+  .btn-modal-primary { flex: 1; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; transition: background .12s; }
+  .btn-modal-primary:hover { background: #1557b0; }
+  .btn-modal-secondary { flex: 1; padding: 13px; background: var(--bg); color: var(--text); border: none; border-radius: 12px; font-size: 15px; font-weight: 500; font-family: inherit; cursor: pointer; transition: background .12s; }
+  .btn-modal-secondary:hover { background: var(--border); }
+  .list-menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end; justify-content: center; }
+  .list-menu-overlay.open { display: flex; }
+  .list-menu-sheet { background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 20px 34px; width: 100%; max-width: 500px; box-shadow: 0 -4px 24px rgba(0,0,0,.15); animation: slideUp .2s ease; }
+  .list-menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 4px; font-size: 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; border-radius: 8px; }
+  .list-menu-item:last-child { border-bottom: none; }
+  .list-menu-item:hover { background: var(--bg); }
+  .list-menu-item.danger { color: var(--danger); }
+  .list-menu-icon { font-size: 20px; width: 28px; text-align: center; }
+  .confirm-sheet { background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 20px 34px; width: 100%; max-width: 500px; box-shadow: 0 -4px 24px rgba(0,0,0,.15); animation: slideUp .2s ease; }
+  .confirm-sheet h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .confirm-sheet p { font-size: 14px; color: var(--muted); margin-bottom: 18px; }
+  .confirm-sheet .actions { display: flex; gap: 8px; }
+  .btn-danger-full { flex: 1; padding: 13px; background: var(--danger); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; transition: background .12s; }
+  .btn-danger-full:hover { background: #c0392b; }
+  .item-edit-input { width: 100%; font-size: 15px; font-family: inherit; border: none; outline: 2px solid var(--accent); border-radius: 6px; padding: 2px 6px; background: #f0f6ff; color: var(--text); }
+  .btn-gear { border: none; background: none; font-size: 18px; cursor: pointer; color: var(--muted); padding: 4px; border-radius: 8px; transition: color .12s; }
+  .btn-gear:hover { color: var(--text); }
+  .settings-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 300; align-items: flex-end; justify-content: center; }
+  .settings-overlay.open { display: flex; }
+  .settings-sheet { background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 20px 34px; width: 100%; max-width: 500px; box-shadow: 0 -4px 24px rgba(0,0,0,.15); animation: slideUp .2s ease; }
+  .settings-sheet h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .settings-field { margin-bottom: 14px; }
+  .settings-field label { font-size: 12px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 5px; }
+  .settings-field .val { font-size: 13px; font-family: monospace; word-break: break-all; color: var(--text); }
+  .copy-btn { margin-top: 6px; padding: 6px 12px; background: var(--bg); border: none; border-radius: 8px; font-size: 12px; cursor: pointer; color: var(--accent); font-weight: 600; }
+  .signout-btn { width: 100%; padding: 12px; background: #fff0ef; color: var(--danger); border: none; border-radius: 12px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="setupScreen" class="setup-screen">
+  <div class="setup-card">
+    <h1>📝 To-Do Lists</h1>
+    <p class="subtitle">Your todos sync across all your devices using a private GitHub Gist. One-time setup takes about 2 minutes.</p>
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <p>Go to <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a></p>
+        <p style="margin-top:4px">Set a name (e.g. <code>todo-app</code>), set <strong>No expiration</strong>, check <strong>gist</strong> scope, click <strong>Generate token</strong>.</p>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-body"><p>Paste your token below:</p></div>
+    </div>
+    <label class="field-label">GitHub Personal Access Token</label>
+    <input type="password" id="patInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+    <div class="setup-divider">or connect to existing data</div>
+    <label class="field-label existing-gist">Gist ID (from another device)</label>
+    <input type="text" id="gistIdInput" placeholder="Leave blank to create new" autocomplete="off" spellcheck="false">
+    <button class="btn-primary" id="btnSetup">Get Started →</button>
+    <div class="setup-error" id="setupError"></div>
+  </div>
+</div>
+<div id="app">
+  <div class="topbar">
+    <h1>📝 To-Do</h1>
+    <div class="sync-badge" id="syncBadge"><span class="sync-dot"></span><span id="syncLabel">Ready</span></div>
+    <button class="btn-gear" id="btnGear" title="Settings">⚙️</button>
+  </div>
+  <div class="list-tabs" id="listTabs"></div>
+  <div class="main-content" id="mainContent"></div>
+</div>
+<div class="modal-overlay" id="newListModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New List</div>
+    <input type="text" id="newListInput" placeholder="List name…" maxlength="60">
+    <div class="modal-actions">
+      <button class="btn-modal-secondary" id="btnNewListCancel">Cancel</button>
+      <button class="btn-modal-primary" id="btnNewListCreate">Create</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="editItemModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Item</div>
+    <input type="text" id="editItemInput" placeholder="Task…" maxlength="200">
+    <div class="modal-actions">
+      <button class="btn-modal-secondary" id="btnEditItemCancel">Cancel</button>
+      <button class="btn-modal-primary" id="btnEditItemSave">Save</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="renameListModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Rename List</div>
+    <input type="text" id="renameListInput" placeholder="List name…" maxlength="60">
+    <div class="modal-actions">
+      <button class="btn-modal-secondary" id="btnRenameCancel">Cancel</button>
+      <button class="btn-modal-primary" id="btnRenameSave">Save</button>
+    </div>
+  </div>
+</div>
+<div class="list-menu-overlay" id="listMenu">
+  <div class="list-menu-sheet">
+    <div class="modal-handle"></div>
+    <div class="list-menu-item" id="menuRename"><span class="list-menu-icon">✏️</span> Rename list</div>
+    <div class="list-menu-item danger" id="menuDelete"><span class="list-menu-icon">🗑️</span> Delete list</div>
+    <div class="list-menu-item" id="menuClose" style="color:var(--muted)"><span class="list-menu-icon">✕</span> Cancel</div>
+  </div>
+</div>
+<div class="list-menu-overlay" id="confirmModal">
+  <div class="confirm-sheet">
+    <div class="modal-handle"></div>
+    <h3 id="confirmTitle">Delete?</h3>
+    <p id="confirmMsg"></p>
+    <div class="actions">
+      <button class="btn-modal-secondary" id="btnConfirmCancel">Cancel</button>
+      <button class="btn-danger-full" id="btnConfirmOk">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-sheet">
+    <div class="modal-handle"></div>
+    <h3>Settings</h3>
+    <div class="settings-field">
+      <label>Gist ID (share with other devices)</label>
+      <div class="val" id="settingsGistId">—</div>
+      <button class="copy-btn" id="btnCopyGistId">Copy ID</button>
+    </div>
+    <div class="settings-field">
+      <label>GitHub Username</label>
+      <div class="val" id="settingsUser">—</div>
+    </div>
+    <button class="signout-btn" id="btnSignOut">Sign out &amp; clear data</button>
+    <button class="btn-modal-secondary" id="btnCloseSettings" style="width:100%;margin-top:8px">Close</button>
+  </div>
+</div>
+<script>
+const K_PAT='todo_gh_pat',K_GIST='todo_gh_gist',K_USER='todo_gh_user',K_CACHE='todo_data_cache',GIST_FILE='todos.json';
+let state={lists:[],items:[],activeId:null,filter:'all'},gistId=null,pat=null,saving=false,saveQueued=false,confirmCb=null,menuListId=null,editItemId=null;
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+async function ghFetch(path,opts={}){
+  const r=await fetch('https://api.github.com'+path,{...opts,headers:{'Authorization':'Bearer '+pat,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json',...(opts.headers||{})}});
+  if(!r.ok){const err=await r.json().catch(()=>({message:r.statusText}));throw new Error(err.message||r.statusText);}
+  return r.status===204?null:r.json();
+}
+async function createGist(){
+  const data=await ghFetch('/gists',{method:'POST',body:JSON.stringify({description:'📝 Todo app data — do not edit manually',public:false,files:{[GIST_FILE]:{content:JSON.stringify({lists:[],items:[]})}}})});
+  return data.id;
+}
+async function loadGist(){
+  const data=await ghFetch('/gists/'+gistId);
+  const raw=data.files[GIST_FILE]?.content;
+  if(!raw)throw new Error('Gist file not found');
+  return JSON.parse(raw);
+}
+async function saveGist(){
+  if(saving){saveQueued=true;return;}
+  saving=true;setSyncStatus('syncing','Saving…');
+  try{
+    await ghFetch('/gists/'+gistId,{method:'PATCH',body:JSON.stringify({files:{[GIST_FILE]:{content:JSON.stringify({lists:state.lists,items:state.items})}}})});
+    localStorage.setItem(K_CACHE,JSON.stringify({lists:state.lists,items:state.items}));
+    setSyncStatus('synced','✓ Saved');
+  }catch(e){console.error(e);setSyncStatus('error','⚠ Save failed');}
+  finally{saving=false;if(saveQueued){saveQueued=false;saveGist();}}
+}
+async function pullGist(){
+  setSyncStatus('syncing','Loading…');
+  try{
+    const data=await loadGist();
+    state.lists=data.lists||[];state.items=data.items||[];
+    if(!state.activeId&&state.lists.length)state.activeId=state.lists[0].id;
+    localStorage.setItem(K_CACHE,JSON.stringify({lists:state.lists,items:state.items}));
+    setSyncStatus('synced','✓ Synced');render();
+  }catch(e){console.error(e);setSyncStatus('error','⚠ Load failed');}
+}
+async function setupApp(){
+  const storedPat=localStorage.getItem(K_PAT),storedGist=localStorage.getItem(K_GIST);
+  if(storedPat&&storedGist){
+    pat=storedPat;gistId=storedGist;showApp();
+    const cache=localStorage.getItem(K_CACHE);
+    if(cache){try{const d=JSON.parse(cache);state.lists=d.lists||[];state.items=d.items||[];if(!state.activeId&&state.lists.length)state.activeId=state.lists[0].id;render();}catch{}}
+    pullGist();return;
+  }
+  document.getElementById('setupScreen').style.display='flex';
+}
+document.getElementById('btnSetup').addEventListener('click',async()=>{
+  const tokenVal=document.getElementById('patInput').value.trim(),gistIdVal=document.getElementById('gistIdInput').value.trim();
+  const errEl=document.getElementById('setupError'),btn=document.getElementById('btnSetup');
+  errEl.classList.remove('show');
+  if(!tokenVal){showSetupError('Please paste your GitHub token.');return;}
+  btn.disabled=true;btn.textContent='Connecting…';pat=tokenVal;
+  try{
+    const user=await ghFetch('/user');
+    localStorage.setItem(K_PAT,pat);localStorage.setItem(K_USER,user.login);
+    if(gistIdVal){gistId=gistIdVal;await loadGist();}else{gistId=await createGist();}
+    localStorage.setItem(K_GIST,gistId);showApp();await pullGist();
+  }catch(e){pat=null;showSetupError('Error: '+(e.message||'Could not connect.'));btn.disabled=false;btn.textContent='Get Started →';}
+});
+function showSetupError(msg){const el=document.getElementById('setupError');el.textContent=msg;el.classList.add('show');}
+function showApp(){
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('settingsGistId').textContent=gistId||'—';
+  const u=localStorage.getItem(K_USER);document.getElementById('settingsUser').textContent=u||'—';
+}
+function setSyncStatus(status,label){
+  const el=document.getElementById('syncBadge'),lb=document.getElementById('syncLabel');
+  el.className='sync-badge '+status;lb.textContent=label;
+}
+function render(){renderTabs();renderMain();}
+function renderTabs(){
+  const tabs=document.getElementById('listTabs');tabs.innerHTML='';
+  state.lists.forEach(list=>{
+    const count=state.items.filter(i=>i.listId===list.id&&!i.done).length;
+    const btn=document.createElement('button');
+    btn.className='list-tab'+(list.id===state.activeId?' active':'');
+    btn.innerHTML=esc(list.title)+'<span class="tab-count">'+count+'</span>';
+    btn.addEventListener('click',()=>{state.activeId=list.id;render();});
+    let pressTimer;
+    btn.addEventListener('touchstart',()=>{pressTimer=setTimeout(()=>openListMenu(list.id),600);},{passive:true});
+    btn.addEventListener('touchend',()=>clearTimeout(pressTimer));
+    btn.addEventListener('touchmove',()=>clearTimeout(pressTimer),{passive:true});
+    tabs.appendChild(btn);
+  });
+  const addBtn=document.createElement('button');
+  addBtn.className='tab-add-btn';addBtn.textContent='+';addBtn.title='New list';
+  addBtn.addEventListener('click',openNewListModal);tabs.appendChild(addBtn);
+}
+function renderMain(){
+  const el=document.getElementById('mainContent');
+  if(!state.lists.length){el.innerHTML='<div class="no-list-state"><div class="e-icon">📋</div><h2>No lists yet</h2><p>Tap <strong>+</strong> above to create your first list.</p></div>';return;}
+  if(!state.activeId)state.activeId=state.lists[0].id;
+  const list=state.lists.find(l=>l.id===state.activeId);
+  if(!list){state.activeId=state.lists[0]?.id;renderMain();return;}
+  const allItems=state.items.filter(i=>i.listId===list.id);
+  const remaining=allItems.filter(i=>!i.done),completed=allItems.filter(i=>i.done);
+  const showAll=state.filter==='all';
+  const listMenuBtn='<button class="btn-icon-sm" style="font-size:18px" onclick="openListMenu(''+list.id+'')">⋯</button>';
+  el.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:18px;font-weight:700">'+esc(list.title)+'</div>'+listMenuBtn+'</div><div class="add-row"><input type="text" id="newItemInput" placeholder="Add a task…" maxlength="200"><button class="btn-add" id="btnAddItem">+</button></div><div class="filter-bar"><button class="filter-chip'+(showAll?'':' active')+'" id="chipActive">Active</button><button class="filter-chip'+(showAll?' active':'')+'" id="chipAll">All</button></div><ul class="items-list" id="itemsList"></ul>';
+  document.getElementById('chipActive').addEventListener('click',()=>{state.filter='active';render();});
+  document.getElementById('chipAll').addEventListener('click',()=>{state.filter='all';render();});
+  const input=document.getElementById('newItemInput');
+  const addItem=()=>{const t=input.value.trim();if(!t)return;state.items.push({id:uid(),listId:list.id,text:t,done:false});input.value='';render();saveGist();setTimeout(()=>document.getElementById('newItemInput')?.focus(),0);};
+  document.getElementById('btnAddItem').addEventListener('click',addItem);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')addItem();});
+  const ul=document.getElementById('itemsList');
+  if(remaining.length===0&&(showAll?completed.length===0:true)){
+    ul.innerHTML='<li class="empty-state"><div class="e-icon">🎉</div><p>Nothing left to do!</p></li>';
+    if(showAll&&completed.length>0)renderCompletedSection(ul,completed);return;
+  }
+  remaining.forEach(item=>ul.appendChild(makeItemEl(item)));
+  if(showAll&&completed.length>0)renderCompletedSection(ul,completed);
+}
+function renderCompletedSection(ul,completed){
+  const sep=document.createElement('li');sep.className='section-label';sep.textContent='Completed ('+completed.length+')';ul.appendChild(sep);
+  completed.forEach(item=>ul.appendChild(makeItemEl(item)));
+}
+function makeItemEl(item){
+  const li=document.createElement('li');li.className='todo-item'+(item.done?' completed':'');
+  const cb=document.createElement('input');cb.type='checkbox';cb.checked=item.done;
+  cb.addEventListener('change',()=>{item.done=cb.checked;render();saveGist();});
+  const body=document.createElement('div');body.className='item-body';
+  const textEl=document.createElement('div');textEl.className='item-text';textEl.textContent=item.text;body.appendChild(textEl);
+  const actions=document.createElement('div');actions.className='item-actions';
+  const editBtn=document.createElement('button');editBtn.className='btn-icon-sm';editBtn.textContent='✏️';editBtn.title='Edit';
+  editBtn.addEventListener('click',()=>openEditItemModal(item.id,item.text));
+  const delBtn=document.createElement('button');delBtn.className='btn-icon-sm btn-icon-delete';delBtn.textContent='🗑️';delBtn.title='Delete';
+  delBtn.addEventListener('click',()=>{confirmAction('Delete item?','"'+item.text+'" will be removed.',()=>{state.items=state.items.filter(i=>i.id!==item.id);render();saveGist();});});
+  actions.appendChild(editBtn);actions.appendChild(delBtn);
+  li.appendChild(cb);li.appendChild(body);li.appendChild(actions);return li;
+}
+function openNewListModal(){document.getElementById('newListInput').value='';document.getElementById('newListModal').classList.add('open');setTimeout(()=>document.getElementById('newListInput').focus(),100);}
+function closeNewListModal(){document.getElementById('newListModal').classList.remove('open');}
+document.getElementById('btnNewListCancel').addEventListener('click',closeNewListModal);
+document.getElementById('newListModal').addEventListener('click',e=>{if(e.target===document.getElementById('newListModal'))closeNewListModal();});
+document.getElementById('btnNewListCreate').addEventListener('click',doCreateList);
+document.getElementById('newListInput').addEventListener('keydown',e=>{if(e.key==='Enter')doCreateList();if(e.key==='Escape')closeNewListModal();});
+function doCreateList(){const title=document.getElementById('newListInput').value.trim();if(!title)return;const id=uid();state.lists.push({id,title});state.activeId=id;closeNewListModal();render();saveGist();}
+function openEditItemModal(id,currentText){editItemId=id;document.getElementById('editItemInput').value=currentText;document.getElementById('editItemModal').classList.add('open');setTimeout(()=>document.getElementById('editItemInput').focus(),100);}
+function closeEditItemModal(){document.getElementById('editItemModal').classList.remove('open');editItemId=null;}
+document.getElementById('btnEditItemCancel').addEventListener('click',closeEditItemModal);
+document.getElementById('editItemModal').addEventListener('click',e=>{if(e.target===document.getElementById('editItemModal'))closeEditItemModal();});
+document.getElementById('btnEditItemSave').addEventListener('click',doSaveItem);
+document.getElementById('editItemInput').addEventListener('keydown',e=>{if(e.key==='Enter')doSaveItem();if(e.key==='Escape')closeEditItemModal();});
+function doSaveItem(){const text=document.getElementById('editItemInput').value.trim();if(!text||!editItemId)return;const item=state.items.find(i=>i.id===editItemId);if(item){item.text=text;render();saveGist();}closeEditItemModal();}
+function openListMenu(id){menuListId=id;document.getElementById('listMenu').classList.add('open');}
+function closeListMenu(){document.getElementById('listMenu').classList.remove('open');menuListId=null;}
+document.getElementById('menuClose').addEventListener('click',closeListMenu);
+document.getElementById('listMenu').addEventListener('click',e=>{if(e.target===document.getElementById('listMenu'))closeListMenu();});
+document.getElementById('menuRename').addEventListener('click',()=>{closeListMenu();const list=state.lists.find(l=>l.id===menuListId);if(!list)return;document.getElementById('renameListInput').value=list.title;document.getElementById('renameListModal').classList.add('open');setTimeout(()=>document.getElementById('renameListInput').focus(),100);});
+document.getElementById('menuDelete').addEventListener('click',()=>{closeListMenu();const list=state.lists.find(l=>l.id===menuListId);if(!list)return;confirmAction('Delete list?','"'+list.title+'" and all its items will be permanently removed.',()=>{state.items=state.items.filter(i=>i.listId!==menuListId);state.lists=state.lists.filter(l=>l.id!==menuListId);if(state.activeId===menuListId)state.activeId=state.lists[0]?.id||null;render();saveGist();});});
+document.getElementById('btnRenameCancel').addEventListener('click',()=>document.getElementById('renameListModal').classList.remove('open'));
+document.getElementById('renameListModal').addEventListener('click',e=>{if(e.target===document.getElementById('renameListModal'))document.getElementById('renameListModal').classList.remove('open');});
+document.getElementById('btnRenameSave').addEventListener('click',doRenameList);
+document.getElementById('renameListInput').addEventListener('keydown',e=>{if(e.key==='Enter')doRenameList();if(e.key==='Escape')document.getElementById('renameListModal').classList.remove('open');});
+function doRenameList(){const title=document.getElementById('renameListInput').value.trim();const list=state.lists.find(l=>l.id===menuListId);if(title&&list){list.title=title;render();saveGist();}document.getElementById('renameListModal').classList.remove('open');}
+function confirmAction(title,msg,cb){confirmCb=cb;document.getElementById('confirmTitle').textContent=title;document.getElementById('confirmMsg').textContent=msg;document.getElementById('confirmModal').classList.add('open');}
+document.getElementById('btnConfirmCancel').addEventListener('click',()=>{confirmCb=null;document.getElementById('confirmModal').classList.remove('open');});
+document.getElementById('confirmModal').addEventListener('click',e=>{if(e.target===document.getElementById('confirmModal')){confirmCb=null;document.getElementById('confirmModal').classList.remove('open');}});
+document.getElementById('btnConfirmOk').addEventListener('click',()=>{document.getElementById('confirmModal').classList.remove('open');if(confirmCb){confirmCb();confirmCb=null;}});
+document.getElementById('btnGear').addEventListener('click',()=>document.getElementById('settingsOverlay').classList.add('open'));
+document.getElementById('btnCloseSettings').addEventListener('click',()=>document.getElementById('settingsOverlay').classList.remove('open'));
+document.getElementById('settingsOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('settingsOverlay'))document.getElementById('settingsOverlay').classList.remove('open');});
+document.getElementById('btnCopyGistId').addEventListener('click',()=>{navigator.clipboard.writeText(gistId||'').then(()=>{document.getElementById('btnCopyGistId').textContent='Copied!';setTimeout(()=>document.getElementById('btnCopyGistId').textContent='Copy ID',1500);});});
+document.getElementById('btnSignOut').addEventListener('click',()=>{if(!confirm('This will clear your token and local data. Your Gist data is safe on GitHub.'))return;[K_PAT,K_GIST,K_USER,K_CACHE].forEach(k=>localStorage.removeItem(k));location.reload();});
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&gistId&&pat)pullGist();});
+setupApp();
+</script>
+</body>
+</html>
